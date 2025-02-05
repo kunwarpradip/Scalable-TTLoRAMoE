@@ -32,7 +32,7 @@ def train_without_ray(config):
     if not torch.cuda.is_available():
         print("Please switch to a GPU machine before running this notebook.")
     
-    dataset = load_dataset("glue", config["dataset_name"]) 
+    dataset = load_dataset(config["glue_type"], config["dataset_name"]) 
     
     tokenized = get_tokenizer(config, dataset)
     train_dataset = tokenized["train"]
@@ -44,13 +44,13 @@ def train_without_ray(config):
         dataset=train_dataset,
         batch_size=32,  # 32 for llama, 256 for roberta
         shuffle=True,   #data shuffles at the beginning of each epoch
-        num_workers=16   #16 for llama, 8 for roberta
+        num_workers=8   #16 for llama, 8 for roberta
     )
 
     val_loader = DataLoader(
         dataset=val_dataset,
         batch_size=32,
-        num_workers=16
+        num_workers=8
         #no need to shuffle the validation data as to get the consistent evaluations
     )
 
@@ -69,7 +69,8 @@ def train_without_ray(config):
         )
     
     model_checkpoint_callback=ModelCheckpoint(
-        dirpath=f"./trained_checkpoints/{config["model_name"]}/experts/{config["dataset_name"]}", 
+        # dirpath=f"./trained_checkpoints/{config["model_name"]}/experts/{config["dataset_name"]}",
+        dirpath="./trained_checkpoints/", 
         save_top_k=1, 
         mode="max", 
         monitor="val_acc")  
@@ -203,14 +204,15 @@ if __name__ == "__main__":
         "device": device,  
 
         #changable dataset parameters:
-        "dataset_name" : "sst2", # mrpc, cola, sst2, qnli
+        "glue_type": "super_glue", # glue, super_glue
+        "dataset_name" : "copa", # glue for roberta are :mrpc, cola, sst2, qnli, super_glue for llama are: boolq, cb, copa, wsc
         
         #changeable hyperparameters
-        "learning_rate":  
-        1e-1 if "roberta-base" in model_name 
-        else 1e-1 if "llama-3-8b" in model_name
-        else 1e-1 if "llama-3-70b" in model_name
-        else ValueError(f"{model_name} Not adapted for this experiment"),
+        "learning_rate": 1e-3
+        # 1e-3 if "roberta-base" in model_name 
+        # else 1e-5 if "llama-3-8b" in model_name
+        # else 1e-5 if "llama-3-70b" in model_name
+        # else ValueError(f"{model_name} Not adapted for this experiment"),
     }
 
     analysis =  train_without_ray(config)

@@ -106,7 +106,7 @@ def train_moe_without_ray(config):
     '''Dataset loading and check if loaded correctly'''
     if config["dataload_type"] == "single":
         # #For single dataset
-        dataset = load_dataset("glue", config["dataset_name"])
+        dataset = load_dataset(config["glue_type"], config["dataset_name"])
         tokenized = get_tokenizer(config, dataset)
         train_dataset = tokenized["train"]
         val_dataset = tokenized["validation"]
@@ -231,55 +231,60 @@ def main():
         "qshape": [64,4,3,3,4,64] if "roberta-base" in model_name #roberta query shape = 768x768
         else [16,4,4,4,2,2,2,2,4,4,4,16] if "llama-3-8b" in model_name #llama-3-8b q_proj shape = 4096x4096,
         else [16,4,4,4,2,2,2,2,2,2,4,4,4,16] if "llama-3-70b" in model_name #llama-3-70b q_proj shape = 8192x8192
+        else [16,4,4,3,2,2,2,2,3,4,4,16] if "llama-3.2-3b" in model_name #llama-3.2-3b q_proj shape = 3072x3072
         else ValueError(f"{model_name} Not adapted for this experiment"), 
 
         "m_factors_q": 
         [64,4,3] if "roberta-base" in model_name #roberta m of query shape = 768,
         else [16,4,4,4,2,2] if "llama-3-8b" in model_name #llama-3-8b m of q_proj shape = 4096,
         else [16,4,4,4,2,2,2] if "llama-3-70b" in model_name #llama-3-70b m of q_proj shape = 8192
+        else [16,4,4,3,2,2] if "llama-3.2-3b" in model_name #llama-3.2-3b m of q_proj shape = 3072
         else ValueError(f"{model_name} Not adapted for this experiment"), 
 
         "n_factors_q": 
         [64,4,3] if "roberta-base" in model_name #roberta n of query shape = 768
         else [16,4,4,4,2,2] if "llama-3-8b" in model_name #llama-3-8b n of q_proj shape = 4096,
         else [16,4,4,4,2,2,2] if "llama-3-70b" in model_name #llama-3-70b n of q_proj shape = 8192
+        else [16,4,4,3,2,2] if "llama-3.2-3b" in model_name #llama-3.2-3b n of q_proj shape = 3072
         else ValueError(f"{model_name} Not adapted for this experiment"),
 
         #value parameters
         "vshape": [64,4,3,3,4,64] if "roberta-base" in model_name #roberta value shape = 768x768
         else [16,4,4,4,2,2,2,2,4,4,16] if "llama-3-8b" in model_name #llama-3-8b v_proj shape = 4096x1024,
         else [16,4,4,4,2,2,2,2,2,4,4,16] if "llama-3-70b" in model_name #llama-3-70b v_proj shape = 8192x1024
+        else [16,4,4,3,2,2,2,2,4,4,16] if "llama-3.2-3b" in model_name #llama-3.2-3b v_proj shape = 4096x1024,
+
         else ValueError(f"{model_name} Not adapted for this experiment"), 
 
         "m_factors_v": 
         [64,4,3] if "roberta-base" in model_name #roberta m of value shape = 768
-        else [16,4,4,4,2,2] if "llama-3-8b" in model_name #llama-3-8b m of q_proj shape = 4096,
-        else [16,4,4,4,2,2,2] if "llama-3-70b" in model_name #llama-3-70b m of q_proj shape = 8192
+        else [16,4,4,4,2,2] if "llama-3-8b" in model_name #llama-3-8b m of v_proj shape = 4096,
+        else [16,4,4,4,2,2,2] if "llama-3-70b" in model_name #llama-3-70b m of v_proj shape = 8192
+        else [16,4,4,3,2,2] if "llama-3.2-3b" in model_name #llama-3.2-3b m of v_proj shape = 3072
+
         else ValueError(f"{model_name} Not adapted for this experiment"), 
 
         "n_factors_v": 
         [64,4,3] if "roberta-base" in model_name #roberta n of value shape = 768
-        else [16,4,4,2,2] if "llama-3-8b" in model_name #llama-3-8b n of q_proj shape = 1024
-        else [16,4,4,2,2] if "llama-3-70b" in model_name #llama-3-70b n of q_proj shape = 1024
+        else [16,4,4,2,2] if "llama-3-8b" in model_name #llama-3-8b n of v_proj shape = 1024
+        else [16,4,4,2,2] if "llama-3-70b" in model_name #llama-3-70b n of v_proj shape = 1024
+        else [16,4,4,2,2] if "llama-3.2-3b" in model_name #llama-3.2-3b n of v_proj shape = 1024
         else ValueError(f"{model_name} Not adapted for this experiment"),
 
         
         "rank": 
         4 if "roberta-base" in model_name 
-        else 10 if "llama-3-8b" in model_name
-        else 10 if "llama-3-70b" in model_name
+        else 10 if "llama" in model_name
         else ValueError(f"{model_name} Not adapted for this experiment"),
 
         "alpha": 
         8 if "roberta-base" in model_name 
-        else 12 if "llama-3-8b" in model_name
-        else 12 if "llama-3-70b" in model_name
+        else 12 if "llama" in model_name
         else ValueError(f"{model_name} Not adapted for this experiment"),
         
         "common alpha": 
         8 if "roberta-base" in model_name 
-        else 12 if "llama-3-8b" in model_name
-        else 12 if "llama-3-70b" in model_name
+        else 12 if "llama" in model_name
         else ValueError(f"{model_name} Not adapted for this experiment"),
 
         #model parameters
@@ -289,8 +294,9 @@ def main():
         "device": device,  
 
         #changable dataset parameters:
+        "glue_type": "super_glue",
         "dataload_type": "single", # {single, multiple}
-        "dataset_name" : "mrpc", # {mrpc, cola, sst2, qnli}
+        "dataset_name" : "cb", # {mrpc, cola, sst2, qnli}
         "multiple_datasets": ["cola","mrpc"], # combination of the datasets
 
         #experts and moe parameters

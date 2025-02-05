@@ -122,7 +122,7 @@ def train_without_ray(config):
 
     if not torch.cuda.is_available():
         print("Please switch to a GPU machine before running this notebook.")
-    dataset = load_dataset("glue", config["dataset_name"]) 
+    dataset = load_dataset(config["glue_type"], config["dataset_name"]) 
     
     tokenized = get_tokenizer(config, dataset)
     train_dataset = tokenized["train"]
@@ -132,14 +132,14 @@ def train_without_ray(config):
     '''Dataloader (an iterable) handles number of rows in each batch and how many gpus to use'''
     train_loader = DataLoader(
         dataset=train_dataset,
-        batch_size=512, #256 for roberta, 512 for llama
+        batch_size=32, #256 for roberta, 512 for llama
         shuffle=True,   #data shuffles at the beginning of each epoch
         num_workers=8   #8 for roberta, 16 for llama
     )
 
     val_loader = DataLoader(
         dataset=val_dataset,
-        batch_size=512, #256 for roberta, 512 for llama
+        batch_size=32, #256 for roberta, 512 for llama
         num_workers=8  #8 for roberta, 16 for llama
         #no need to shuffle the validation data as to get the consistent evaluations
     )
@@ -200,13 +200,21 @@ if __name__ == "__main__":
     '''while changing the model_name, make sure to change the expert_path as well'''
     model_name = "llama-3-8b" # roberta-base, llama-3-8b, llama-3-70b
     #changeable parameter
-    expert_path= {
-        "mrpc": f"./trained_checkpoints/{model_name}/experts/mrpc/{os.listdir(f'./trained_checkpoints/{model_name}/experts/mrpc/')[0]}",
-        "cola": f"./trained_checkpoints/{model_name}/experts/cola/{os.listdir(f'./trained_checkpoints/{model_name}/experts/cola/')[0]}",
-        "sst2": f"./trained_checkpoints/{model_name}/experts/sst2/{os.listdir(f'./trained_checkpoints/{model_name}/experts/sst2/')[0]}",
-        "qnli": f"./trained_checkpoints/{model_name}/experts/qnli/{os.listdir(f'./trained_checkpoints/{model_name}/experts/qnli/')[0]}",
-                }
-    
+    if model_name == "roberta-base":
+        expert_path= {
+            "mrpc": f"./trained_checkpoints/{model_name}/experts/mrpc/{os.listdir(f'./trained_checkpoints/{model_name}/experts/mrpc/')[0]}",
+            "cola": f"./trained_checkpoints/{model_name}/experts/cola/{os.listdir(f'./trained_checkpoints/{model_name}/experts/cola/')[0]}",
+            "sst2": f"./trained_checkpoints/{model_name}/experts/sst2/{os.listdir(f'./trained_checkpoints/{model_name}/experts/sst2/')[0]}",
+            "qnli": f"./trained_checkpoints/{model_name}/experts/qnli/{os.listdir(f'./trained_checkpoints/{model_name}/experts/qnli/')[0]}",
+                    }
+    elif "llama" in model_name:
+        expert_path= {
+            "cb": f"./trained_checkpoints/{model_name}/experts/cb/{os.listdir(f'./trained_checkpoints/{model_name}/experts/cb/')[0]}",
+            
+                    }
+    else:
+        raise ValueError("Model name not recognized. Please use 'roberta' or 'llama' in the model name.")
+
     experts_dict = parse_experts(f"./trained_checkpoints/{model_name}/experts", model_name)
     print(experts_dict.keys())
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -279,7 +287,8 @@ if __name__ == "__main__":
         "device": device,  
 
         #changable dataset parameters:
-        "dataset_name" : "cola", # mrpc, cola, sst2, qnli
+        "glue_type": "super_glue", # glue, super_glue
+        "dataset_name" : "cb", # glue for roberta are :mrpc, cola, sst2, qnli, super_glue for llama are: boolq, cb, copa, wsc
         
         #changeable hyperparameters
         "learning_rate":  
