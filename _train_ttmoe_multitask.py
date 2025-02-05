@@ -297,6 +297,7 @@ def main():
         "glue_type": "super_glue",
         "dataload_type": "single", # {single, multiple}
         "dataset_name" : "cb", # {mrpc, cola, sst2, qnli}
+        
         "multiple_datasets": ["cola","mrpc"], # combination of the datasets
 
         #experts and moe parameters
