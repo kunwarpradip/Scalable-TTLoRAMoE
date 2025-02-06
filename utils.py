@@ -278,14 +278,16 @@ def wrap_model_with_ttcores(model, config):
                                                            tt_rank=ttlora_rank_q,
                                                            m_factors=m_factors_q,
                                                            n_factors=n_factors_q,
-                                                           device=config["device"]) 
+                                                           device=config["device"], 
+                                                           init_choice=config["core_init_choice"]) 
             if ttlora_adapter_at_value:
                 layer.attention.self.value = assign_ttlora(layer.attention.self.value,
                                                            tt_shape=ttlora_shape_v, 
                                                            tt_rank=ttlora_rank_v,
                                                            m_factors=m_factors_v,
                                                            n_factors=n_factors_v,
-                                                           device=config["device"]) 
+                                                           device=config["device"],
+                                                           init_choice=config["core_init_choice"]) 
     elif "llama" in config["model_name"]:
         for layer in model.model.layers:
             if ttlora_adapter_at_query:
@@ -294,14 +296,16 @@ def wrap_model_with_ttcores(model, config):
                                                        tt_rank=ttlora_rank_q,
                                                        m_factors=m_factors_q,
                                                        n_factors=n_factors_q,
-                                                       device=config["device"])
+                                                       device=config["device"],
+                                                       init_choice=config["core_init_choice"])
             if ttlora_adapter_at_value:
                 layer.self_attn.v_proj = assign_ttlora(layer.self_attn.v_proj,
                                                        tt_shape=ttlora_shape_v,
                                                        tt_rank=ttlora_rank_v,
                                                        m_factors=m_factors_v,
                                                        n_factors=n_factors_v,
-                                                       device=config["device"])
+                                                       device=config["device"],
+                                                       init_choice=config["core_init_choice"])
     else:
         raise ValueError("Model name not recognized. Please use 'roberta' or 'llama' in the model name.")
     return model

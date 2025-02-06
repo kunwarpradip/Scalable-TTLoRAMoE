@@ -137,7 +137,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     #changeable model parameter
-    model_name = "llama-3-8b" # options: roberta-base, llama-3-8b, llama-3-70b
+    model_name = "roberta-base" # options: roberta-base, llama-3-8b, llama-3-70b
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     config = {
@@ -202,10 +202,11 @@ if __name__ == "__main__":
         "model_path" : f"./models/{model_name}/{model_name}-model",
         "tokenizer_path" : f"./models/{model_name}/{model_name}-tokenizer",
         "device": device,  
+        "core_init_choice": "direct_init", # options: "direct_init", "init_and_decompose"
 
         #changable dataset parameters:
-        "glue_type": "super_glue", # glue, super_glue
-        "dataset_name" : "copa", # glue for roberta are :mrpc, cola, sst2, qnli, super_glue for llama are: boolq, cb, copa, wsc
+        "glue_type": "glue", # glue, super_glue
+        "dataset_name" : "mrpc", # glue for roberta are :mrpc, cola, sst2, qnli, super_glue for llama are: boolq, cb, copa, wsc
         
         #changeable hyperparameters
         "learning_rate": 1e-3
@@ -218,5 +219,5 @@ if __name__ == "__main__":
     analysis =  train_without_ray(config)
     df = pd.DataFrame(list(analysis.items()), columns=['metric', 'value'])
     print(df)
-    filename = f"Expert_{config["dataset_name"]}_{config["model_name"]}.csv"
+    filename = f"Expert-w/o-dd_{config["dataset_name"]}_{config["model_name"]}.csv"
     df.to_csv(filename, index=False)

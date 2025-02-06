@@ -103,13 +103,13 @@ class AdaptCores_and_Test_Individual(nn.Module): #Inherits from nn.Module
                                                     tt_cores = self.ttlora_cores, 
                                                     m_factors=self.m_factors, 
                                                     n_factors=self.n_factors, 
-                                                    device=self.device) 
+                                                    device=self.device,) 
                 # print("Executed query")
                 return self.base_module(x.to(self.device)) + out*self.alpha
 
 class TTLoRALinearWrapper_withcores(nn.Module): #Inherits from nn.Module
         '''Define cores and the forward pass and makes it ready for training the cores'''
-        def __init__(self, module: nn.Module, tt_shape, tt_rank, alpha:int, m_factors, n_factors, device):
+        def __init__(self, module: nn.Module, tt_shape, tt_rank, alpha:int, m_factors, n_factors, device, init_choice):
             super().__init__()
             self.base_module = module
             self.tt_shape = tt_shape
@@ -118,43 +118,42 @@ class TTLoRALinearWrapper_withcores(nn.Module): #Inherits from nn.Module
             self.m_factors = m_factors
             self.n_factors = n_factors
             self.device = device
+            self.init_choice = init_choice
             self.in_features_shape, self.out_features_shape = self.base_module.weight.shape
             
-            self.tt_cores = self.generate_cores(self.tt_shape, self.tt_rank, "normal").to(self.device)  # Change method as needed
-            self.tt_cores.requires_grad= True 
-            # Make the bias non-trainable
-            if self.base_module.bias is not None:
-                    self.base_module.bias.requires_grad = False
-
-            '''Create a torch tensor dummy Weight_delta of shape (in_feature_shape, out_feature_shape) 
-            and initialize all 0s'''
-            # self.Weight_delta=torch.zeros((self.in_features_shape, self.out_features_shape)).to('cuda')
+            if self.init_choice == "direct_init":
+                self.tt_cores = self.generate_cores(self.tt_shape, self.tt_rank, "normal").to(self.device)  # Change method as needed
+                self.tt_cores.requires_grad= True 
+                # Make the bias non-trainable
+                if self.base_module.bias is not None:
+                        self.base_module.bias.requires_grad = False
             
-            '''Then allocate random values using gaussian distribution to dummy Weight_delta'''
-            # self.reset_parameters()
-
-            '''Decompose the dummy Weight_delta to high dimensional tensor based on the TT shapes'''
-            # self.Weight_TT_dimension = self.reshape_tensor(torch.tensor(self.Weight_delta)).to('cuda')
-
-            '''We have dummy weight decomposed into multiple tensors based on tt_shape
-            Now, we create tensor cores as Parameters which are trainable
-            Paramerter wraps the tensors into traninable parameters
-            ParameterList holds the list of parameters
-            TT Cores are initialized using standard normal distribution based on the ttcores shapes'''
-            # self.ttlora_cores = nn.ParameterList([nn.Parameter(self.initialize_cores(*shape).to('cuda')) for shape in self.get_ttcores_shapes()])
-
-            '''Using tensor train, decompose into multiple tensors based on the ranks and shapes provided'''
-            # self.ttlora_cores_dummy = tensor_train(self.Weight_TT_dimension, self.tt_rank)
-
-            '''Transfer the values of tensor trained ttlora_cores_dummy to ttlora_cores trainable parameters'''
-            # for i in range(len(self.ttlora_cores)):
-            #     self.ttlora_cores[i].data = torch.tensor(self.ttlora_cores_dummy[i], dtype=torch.float32).to('cuda')
-        
-            # self.ttlora_cores.requires_grad= True 
-            # # Make the bias non-trainable
-            # if self.base_module.bias is not None:
-            #         self.base_module.bias.requires_grad = False
-
+            elif self.init_choice == "init_and_decompose":
+                '''Create a torch tensor dummy Weight_delta of shape (in_feature_shape, out_feature_shape) 
+                and initialize all 0s'''
+                self.Weight_delta=torch.zeros((self.in_features_shape, self.out_features_shape)).to('cuda')
+                '''Then allocate random values using gaussian distribution to dummy Weight_delta'''
+                self.reset_parameters()
+                '''Decompose the dummy Weight_delta to high dimensional tensor based on the TT shapes'''
+                self.Weight_TT_dimension = self.reshape_tensor(torch.tensor(self.Weight_delta)).to('cuda')
+                '''We have dummy weight decomposed into multiple tensors based on tt_shape
+                Now, we create tensor cores as Parameters which are trainable
+                Paramerter wraps the tensors into traninable parameters
+                ParameterList holds the list of parameters
+                TT Cores are initialized using standard normal distribution based on the ttcores shapes'''
+                self.tt_cores = nn.ParameterList([nn.Parameter(self.initialize_cores(*shape).to('cuda')) for shape in self.get_ttcores_shapes()])
+                '''Using tensor train, decompose into multiple tensors based on the ranks and shapes provided'''
+                self.tt_cores_dummy = tensor_train(self.Weight_TT_dimension, self.tt_rank)
+                '''Transfer the values of tensor trained ttlora_cores_dummy to ttlora_cores trainable parameters'''
+                for i in range(len(self.tt_cores)):
+                    self.tt_cores[i].data = torch.tensor(self.tt_cores_dummy[i], dtype=torch.float32).to('cuda')
+            
+                self.tt_cores.requires_grad= True 
+                # Make the bias non-trainable
+                if self.base_module.bias is not None:
+                        self.base_module.bias.requires_grad = False
+            else:
+                raise ValueError("Invalid initialization choice")
 
         def generate_cores(self, shape, rank, init_method):
 
@@ -163,8 +162,6 @@ class TTLoRALinearWrapper_withcores(nn.Module): #Inherits from nn.Module
             for i in range(len(shape)):
                 core_shape = (rank[i], shape[i], rank[i + 1])  # TT core shape
                 core = torch.empty(core_shape)  # Create empty tensor
-
-                
                 # # Apply different random initialization methods
                 # if init_method == "kaiming":
                 #     init.kaiming_uniform_(core, a=math.sqrt(8))
